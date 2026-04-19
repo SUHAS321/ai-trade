@@ -1,11 +1,11 @@
 import time
 import requests
 import pandas as pd
-import numpy as np
+
 # =========================
-# TELEGRAM CONFIG
+# 🔑 TELEGRAM CONFIG (PUT HERE)
 # =========================
-TELEGRAM_TOKEN = "8725264690:AAE6xjCAyXyc2qsTRMk9eeuy6_cWXOy8uFA"
+TOKEN = "8725264690:AAE6xjCAyXyc2qsTRMk9eeuy6_cWXOy8uFA"
 CHAT_ID = "1345617133"
 
 def send(msg):
@@ -26,13 +26,14 @@ SYMBOLS = ["BTCUSDT", "ETHUSDT", "SOLUSDT", "XRPUSDT"]
 BALANCE = 20
 TRADE_PERCENT = 0.25
 
-TP = 0.01
-SL = 0.005
+TP = 0.01   # 1%
+SL = 0.005  # 0.5%
 
 active_trades = {}
 
+
 # =========================
-# DATA
+# DATA FUNCTION
 # =========================
 def get_data(symbol, interval):
     url = f"https://api.binance.com/api/v3/klines?symbol={symbol}&interval={interval}&limit=100"
@@ -50,22 +51,16 @@ def rsi(series):
     delta = series.diff()
     gain = delta.clip(lower=0)
     loss = -delta.clip(upper=0)
+
     avg_gain = gain.rolling(14).mean()
     avg_loss = loss.rolling(14).mean()
+
     rs = avg_gain / avg_loss
     return 100 - (100 / (1 + rs))
 
 
 # =========================
-# NEWS SENTIMENT (BASIC)
-# =========================
-def news_score():
-    # simplified dummy sentiment
-    return np.random.uniform(-1, 1)
-
-
-# =========================
-# SIGNAL ENGINE
+# STRATEGY (HIGH FILTER)
 # =========================
 def analyze(symbol):
     df1 = get_data(symbol, "1m")
@@ -73,7 +68,6 @@ def analyze(symbol):
 
     price = df1["close"].iloc[-1]
 
-    # indicators
     ema9 = df1["close"].ewm(span=9).mean().iloc[-1]
     ema21 = df1["close"].ewm(span=21).mean().iloc[-1]
 
@@ -85,30 +79,24 @@ def analyze(symbol):
     volume = df1["volume"].iloc[-1]
     avg_volume = df1["volume"].rolling(20).mean().iloc[-1]
 
-    news = news_score()
-
     score = 0
 
-    # Trend
+    # Trend confirmation
     if ema9 > ema21 and ema5_tf > ema21_tf:
         score += 1
     elif ema9 < ema21 and ema5_tf < ema21_tf:
         score += 1
 
-    # RSI
+    # RSI filter
     if 35 < r < 45 or 55 < r < 65:
         score += 1
 
-    # Volume
+    # Volume filter
     if volume > avg_volume:
         score += 1
 
-    # News
-    if news > 0:
-        score += 1
-
-    # SIGNAL
-    if score >= 3:
+    # FINAL DECISION
+    if score >= 2:
         if ema9 > ema21:
             return "BUY", price, score
         else:
@@ -151,20 +139,20 @@ def open_trade(symbol):
     }
 
     send(f"""
-📊 ENTRY SIGNAL
+📊 TRADE OPENED
 {symbol} {signal}
 
 Entry: {price:.2f}
 TP: {tp:.2f}
 SL: {sl:.2f}
 
-Confidence: {score}/4
-Balance: ${BALANCE:.2f}
+Confidence: {score}/3
+💰 Balance: ${BALANCE:.2f}
 """)
 
 
 # =========================
-# CLOSE TRADES
+# CLOSE TRADE
 # =========================
 def check_trades():
     global BALANCE
@@ -201,7 +189,7 @@ def check_trades():
 Result: {result}
 PnL: ${pnl:.2f}
 
-💰 Balance: ${BALANCE:.2f}
+💰 New Balance: ${BALANCE:.2f}
 """)
 
         to_close.append(symbol)
@@ -213,7 +201,8 @@ PnL: ${pnl:.2f}
 # =========================
 # MAIN LOOP
 # =========================
-send("🚀 AI TRADING BOT STARTED")
+print("🚀 BOT STARTED")
+send("🚀 BOT STARTED")
 
 while True:
     try:
@@ -222,8 +211,8 @@ while True:
 
         check_trades()
 
-        time.sleep(20)
+        time.sleep(15)
 
     except Exception as e:
-        print(e)
-        time.sleep(20)
+        print("Error:", e)
+        time.sleep(15)
